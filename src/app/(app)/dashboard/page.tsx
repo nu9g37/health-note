@@ -1,17 +1,56 @@
+import { connection } from "next/server";
+import { Suspense } from "react";
 import { signOut } from "@/actions/auth";
+import { BpForm } from "@/components/bp/bp-form";
+import { BpTable } from "@/components/bp/bp-table";
+import { getBpLogs } from "@/lib/queries/bp-logs";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-
+export default function DashboardPage() {
   return (
-    <main className="mx-auto max-w-xl p-4">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
-      <p className="mt-2 text-sm">Signed in as {data?.claims?.email}</p>
-      <form action={signOut} className="mt-4">
-        <button className="rounded-lg border px-4 py-2">Sign out</button>
-      </form>
+    <main className="mx-auto flex max-w-xl flex-col gap-6 p-4">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Health Note</h1>
+          <Suspense fallback={<p className="text-sm text-gray-600">&nbsp;</p>}>
+            <UserEmail />
+          </Suspense>
+        </div>
+        <form action={signOut}>
+          <button className="rounded-lg border px-4 py-2 text-sm">
+            Sign out
+          </button>
+        </form>
+      </header>
+
+      <section>
+        <h2 className="mb-2 text-lg font-semibold">New record</h2>
+        <BpForm />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-semibold">History</h2>
+        <Suspense fallback={<p className="text-sm text-gray-500">Loading...</p>}>
+          <History />
+        </Suspense>
+        <p className="mt-4 text-xs text-gray-500">
+          This app is for personal record keeping only and is not medical
+          advice. Consult a doctor if your readings are high.
+        </p>
+      </section>
     </main>
   );
+}
+
+async function UserEmail() {
+  await connection();
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  return <p className="text-sm text-gray-600">{data?.claims?.email}</p>;
+}
+
+async function History() {
+  await connection();
+  const logs = await getBpLogs();
+  return <BpTable logs={logs} />;
 }
