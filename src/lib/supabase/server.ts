@@ -1,7 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-// ใช้ใน Server Component, Server Action, Route Handler
 export async function createClient() {
   const cookieStore = await cookies();
 
@@ -18,10 +17,7 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            // เรียกจาก Server Component จะ set cookie ไม่ได้ — ไม่เป็นไร
-            // เพราะ proxy.ts เป็นคน refresh session ให้อยู่แล้ว
-          }
+          } catch {}
         },
       },
     },

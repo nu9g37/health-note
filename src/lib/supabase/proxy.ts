@@ -1,9 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// หน้าที่ไม่ต้อง login
 const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/auth"];
-// หน้าที่ login แล้วไม่ควรเข้า
 const AUTH_PAGES = ["/sign-in", "/sign-up"];
 
 function matches(pathname: string, paths: string[]) {
@@ -12,7 +10,6 @@ function matches(pathname: string, paths: string[]) {
   );
 }
 
-// Refresh session cookie ทุก request และ redirect ตามสถานะ login
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -37,7 +34,6 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // อย่าใส่โค้ดอื่นคั่นระหว่าง createServerClient กับ getClaims()
   const { data } = await supabase.auth.getClaims();
   const isLoggedIn = !!data?.claims;
   const { pathname } = request.nextUrl;
@@ -47,7 +43,6 @@ export async function updateSession(request: NextRequest) {
     url.pathname = path;
     url.search = "";
     const redirect = NextResponse.redirect(url);
-    // คง cookie ที่ refresh แล้วไว้
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;
   };

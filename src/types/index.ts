@@ -1,12 +1,10 @@
-// Type ชั่วคราว (เขียนมือ) — เมื่อรัน `npx supabase gen types typescript`
-// แล้ว ให้เปลี่ยนไปใช้ type จาก ./database.types.ts แทน
 export interface BpLog {
   id: string;
   user_id: string;
   systolic: number;
   diastolic: number;
   pulse: number | null;
-  measured_at: string; // ISO timestamp
+  measured_at: string;
   created_at: string;
   updated_at: string;
 }

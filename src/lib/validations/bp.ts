@@ -3,29 +3,28 @@ import { z } from "zod";
 export const bpFormSchema = z
   .object({
     systolic: z.coerce
-      .number("กรุณากรอกตัวเลข")
-      .int("ต้องเป็นจำนวนเต็ม")
-      .min(50, "ค่าความดันตัวบนต่ำเกินไป (ขั้นต่ำ 50)")
-      .max(300, "ค่าความดันตัวบนสูงเกินไป (ไม่เกิน 300)"),
+      .number("Please enter a number")
+      .int("Must be a whole number")
+      .min(50, "Systolic is too low (minimum 50)")
+      .max(300, "Systolic is too high (maximum 300)"),
     diastolic: z.coerce
-      .number("กรุณากรอกตัวเลข")
-      .int("ต้องเป็นจำนวนเต็ม")
-      .min(30, "ค่าความดันตัวล่างต่ำเกินไป (ขั้นต่ำ 30)")
-      .max(200, "ค่าความดันตัวล่างสูงเกินไป (ไม่เกิน 200)"),
-    // ช่องว่าง -> undefined
+      .number("Please enter a number")
+      .int("Must be a whole number")
+      .min(30, "Diastolic is too low (minimum 30)")
+      .max(200, "Diastolic is too high (maximum 200)"),
     pulse: z.preprocess(
       (v) => (v === "" || v === null ? undefined : v),
       z.coerce
-        .number("กรุณากรอกตัวเลข")
-        .int("ต้องเป็นจำนวนเต็ม")
-        .min(30, "ค่าชีพจรต่ำเกินไป (ขั้นต่ำ 30)")
-        .max(250, "ค่าชีพจรสูงเกินไป (ไม่เกิน 250)")
+        .number("Please enter a number")
+        .int("Must be a whole number")
+        .min(30, "Pulse is too low (minimum 30)")
+        .max(250, "Pulse is too high (maximum 250)")
         .optional(),
     ),
     measuredAt: z.string().optional(),
   })
   .refine((data) => data.systolic > data.diastolic, {
-    message: "ค่าความดันตัวบน (Systolic) ต้องมากกว่าตัวล่าง (Diastolic) เสมอ",
+    message: "Systolic must be greater than diastolic",
     path: ["systolic"],
   });
 
