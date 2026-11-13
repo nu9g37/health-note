@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getTrustedAuthOrigin } from "@/lib/auth/origin";
 import { signOutSafely, verifyActionSession } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -12,39 +13,6 @@ import {
 } from "@/lib/validations/auth";
 
 export type AuthState = { error?: string; message?: string } | undefined;
-
-async function getRequestOrigin(): Promise<string | null> {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    try {
-      return new URL(process.env.NEXT_PUBLIC_SITE_URL).origin;
-    } catch {
-      return null;
-    }
-  }
-
-  const headerStore = await headers();
-  const origin = headerStore.get("origin");
-  if (origin && origin !== "null") {
-    try {
-      return new URL(origin).origin;
-    } catch {
-      // Fall back to forwarded/host headers below.
-    }
-  }
-
-  const host =
-    headerStore.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    headerStore.get("host")?.split(",")[0]?.trim();
-  if (!host) return null;
-
-  const proto =
-    headerStore.get("x-forwarded-proto")?.split(",")[0]?.trim() || "http";
-  try {
-    return new URL(`${proto}://${host}`).origin;
-  } catch {
-    return null;
-  }
-}
 
 export async function signIn(
   _prev: AuthState,
@@ -163,7 +131,7 @@ export async function requestPasswordReset(
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const origin = await getRequestOrigin();
+  const origin = getTrustedAuthOrigin(await headers());
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,

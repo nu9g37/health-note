@@ -1,11 +1,12 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { createAuthRedirectResponse } from "@/lib/auth/origin";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
 import { signOutSafely } from "@/lib/auth/server";
 import { hasPasswordAuth } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const flowId = searchParams.get("sb_flow_id");
   const next = getSafeRedirectPath(searchParams.get("next"));
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
       const isRecovery =
         "redirectType" in data && data.redirectType === "recovery";
       if (isRecovery) {
-        return NextResponse.redirect(`${origin}/reset-password`);
+        return createAuthRedirectResponse(request, "/reset-password");
       }
 
       const { data: claimsData } = await supabase.auth.getClaims(
@@ -28,12 +29,15 @@ export async function GET(request: NextRequest) {
       );
       if (!hasPasswordAuth(claimsData?.claims)) {
         await signOutSafely(supabase, "local");
-        return NextResponse.redirect(`${origin}/sign-in?status=email-confirmed`);
+        return createAuthRedirectResponse(
+          request,
+          "/sign-in?status=email-confirmed",
+        );
       }
 
-      return NextResponse.redirect(`${origin}${next ?? "/dashboard"}`);
+      return createAuthRedirectResponse(request, next ?? "/dashboard");
     }
   }
 
-  return NextResponse.redirect(`${origin}/sign-in?error=invalid-link`);
+  return createAuthRedirectResponse(request, "/sign-in?error=invalid-link");
 }
