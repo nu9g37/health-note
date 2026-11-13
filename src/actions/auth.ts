@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { signOutSafely } from "@/lib/auth/server";
 import { getSessionKind } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -88,13 +89,13 @@ export async function signUp(
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await signOutSafely(supabase, "global");
   redirect("/sign-in");
 }
 
 export async function cancelPasswordReset() {
   const supabase = await createClient();
-  await supabase.auth.signOut({ scope: "local" });
+  await signOutSafely(supabase, "local");
   redirect("/sign-in");
 }
 
@@ -151,6 +152,6 @@ export async function updatePassword(
   });
   if (error) return { error: error.message };
 
-  await supabase.auth.signOut();
+  await signOutSafely(supabase, "global");
   redirect("/sign-in?status=password-updated");
 }

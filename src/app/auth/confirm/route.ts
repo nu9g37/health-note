@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { signOutSafely } from "@/lib/auth/server";
 import { hasPasswordAuth } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
         data.session?.access_token,
       );
       if (!hasPasswordAuth(claimsData?.claims)) {
-        await supabase.auth.signOut({ scope: "local" });
+        await signOutSafely(supabase, "local");
         return NextResponse.redirect(`${origin}/sign-in?status=email-confirmed`);
       }
 
