@@ -39,12 +39,21 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const sessionKind = getSessionKind(data?.claims);
   const { pathname } = request.nextUrl;
+  // Let Next.js Server Action POSTs reach their action handler so expired/unauthorized
+  // state returns serialized action errors or framework redirects cleanly instead of 307.
+  const isServerAction =
+    request.method === "POST" && request.headers.has("next-action");
+  if (isServerAction) {
+    return response;
+  }
 
   const redirectTo = (path: string) => {
     const url = request.nextUrl.clone();
     url.pathname = path;
     url.search = "";
-    const redirect = NextResponse.redirect(url);
+    const status =
+      request.method === "GET" || request.method === "HEAD" ? 307 : 303;
+    const redirect = NextResponse.redirect(url, status);
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;
   };
