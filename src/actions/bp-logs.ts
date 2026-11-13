@@ -102,18 +102,27 @@ export async function updateBpLog(
   return { success: true };
 }
 
-export async function deleteBpLog(formData: FormData) {
-  const parsed = z.uuid().safeParse(formData.get("id"));
-  if (!parsed.success) return;
-
+export async function deleteBpLog(
+  _prev: BpFormState,
+  formData: FormData,
+): Promise<BpFormState> {
   const auth = await getAuthContext();
-  if (!auth) return;
+  if (!auth) return { error: "You must be signed in" };
 
-  await auth.supabase
+  const idResult = z.uuid().safeParse(formData.get("id"));
+  if (!idResult.success) return { error: "Invalid record ID" };
+
+  const { data, error } = await auth.supabase
     .from("blood_pressure_logs")
     .delete()
-    .eq("id", parsed.data)
-    .eq("user_id", auth.userId);
+    .eq("id", idResult.data)
+    .eq("user_id", auth.userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!data) return { error: "Record not found" };
 
   revalidatePath("/dashboard");
+  return { success: true };
 }
