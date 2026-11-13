@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useId, type ReactNode } from "react";
 import { signIn } from "@/actions/auth";
 
-export function SignInForm() {
+interface SignInFormProps {
+  initialNotice?: ReactNode;
+}
+
+export function SignInForm({ initialNotice }: SignInFormProps) {
   const [state, action, pending] = useActionState(signIn, undefined);
+  const passwordId = useId();
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -19,19 +24,26 @@ export function SignInForm() {
           className="rounded-lg border px-3 py-3 text-base"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm">
-        Password
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-sm">
+          <label htmlFor={passwordId}>Password</label>
+          <Link href="/forgot-password" className="underline">
+            Forgot password?
+          </Link>
+        </div>
         <input
+          id={passwordId}
           name="password"
           type="password"
           autoComplete="current-password"
           required
           className="rounded-lg border px-3 py-3 text-base"
         />
-      </label>
+      </div>
 
+      {!state && initialNotice}
       {state?.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {state.error}
         </p>
       )}
