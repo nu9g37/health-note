@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getSessionKind } from "@/lib/auth/session";
-import { createClient } from "@/lib/supabase/server";
+import { verifyActionSession } from "@/lib/auth/server";
 import { bpFormSchema } from "@/lib/validations/bp";
 
 export type BpFormState =
@@ -22,12 +21,16 @@ type ParsedBpPayload =
   | { error: string };
 
 async function getAuthContext() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (getSessionKind(data?.claims) !== "authenticated") return null;
-  const userId = data?.claims?.sub;
-  if (!userId) return null;
-  return { supabase, userId };
+  const session = await verifyActionSession("authenticated");
+  if (!session.ok) {
+    return {
+      error:
+        session.reason === "unavailable"
+          ? "Unable to verify your session. Please try again."
+          : "You must be signed in",
+    } as const;
+  }
+  return { supabase: session.supabase, userId: session.userId } as const;
 }
 
 function parseBpFormData(formData: FormData): ParsedBpPayload {
@@ -61,7 +64,7 @@ export async function createBpLog(
   formData: FormData,
 ): Promise<BpFormState> {
   const auth = await getAuthContext();
-  if (!auth) return { error: "You must be signed in" };
+  if ("error" in auth) return { error: auth.error };
 
   const parsed = parseBpFormData(formData);
   if ("error" in parsed) return { error: parsed.error };
@@ -81,7 +84,7 @@ export async function updateBpLog(
   formData: FormData,
 ): Promise<BpFormState> {
   const auth = await getAuthContext();
-  if (!auth) return { error: "You must be signed in" };
+  if ("error" in auth) return { error: auth.error };
 
   const idResult = z.uuid().safeParse(formData.get("id"));
   if (!idResult.success) return { error: "Invalid record ID" };
@@ -109,7 +112,7 @@ export async function deleteBpLog(
   formData: FormData,
 ): Promise<BpFormState> {
   const auth = await getAuthContext();
-  if (!auth) return { error: "You must be signed in" };
+  if ("error" in auth) return { error: auth.error };
 
   const idResult = z.uuid().safeParse(formData.get("id"));
   if (!idResult.success) return { error: "Invalid record ID" };

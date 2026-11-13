@@ -2,8 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { signOutSafely } from "@/lib/auth/server";
-import { getSessionKind } from "@/lib/auth/session";
+import { signOutSafely, verifyActionSession } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   forgotPasswordSchema,
@@ -133,25 +132,28 @@ export async function updatePassword(
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const sessionKind = getSessionKind(data?.claims);
-  if (sessionKind === "none") {
+  const session = await verifyActionSession("recovery");
+  if (!session.ok) {
+    if (session.reason === "forbidden") {
+      return {
+        error: "Password reset requires a valid recovery link.",
+      };
+    }
+    if (session.reason === "unavailable") {
+      return {
+        error: "Unable to verify your reset session. Please try again.",
+      };
+    }
     return {
       error: "Your reset session has expired. Please request a new reset link.",
     };
   }
-  if (sessionKind !== "recovery") {
-    return {
-      error: "Password reset requires a valid recovery link.",
-    };
-  }
 
-  const { error } = await supabase.auth.updateUser({
+  const { error } = await session.supabase.auth.updateUser({
     password: parsed.data.password,
   });
   if (error) return { error: error.message };
 
-  await signOutSafely(supabase, "global");
+  await signOutSafely(session.supabase, "global");
   redirect("/sign-in?status=password-updated");
 }
