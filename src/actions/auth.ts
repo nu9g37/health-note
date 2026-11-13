@@ -63,6 +63,61 @@ export async function signIn(
   redirect("/dashboard");
 }
 
+type AuthErrorLike = {
+  code?: string;
+  status?: number;
+  message: string;
+};
+
+const SIGN_UP_CONFIRMATION_MESSAGE =
+  "Check your inbox for a confirmation email, or try signing in if you already have an account.";
+
+const PASSWORD_RESET_RESPONSE_MESSAGE =
+  "If an account with that email exists, we sent a password reset link. Please check your inbox.";
+
+function logAuthProviderError(action: string, error: AuthErrorLike): void {
+  console.error(`[auth] ${action} failed`, {
+    code: error.code,
+    status: error.status,
+    message: error.message,
+  });
+}
+
+function mapSignUpError(error: AuthErrorLike): AuthState {
+  // Mask account-existence and per-email cooldown errors so signUp does not
+  // confirm whether an address is already registered or confirmed.
+  if (
+    error.code === "user_already_exists" ||
+    error.code === "email_exists" ||
+    error.code === "over_email_send_rate_limit"
+  ) {
+    if (error.code === "over_email_send_rate_limit") {
+      logAuthProviderError("signUp", error);
+    }
+    return { message: SIGN_UP_CONFIRMATION_MESSAGE };
+  }
+
+  logAuthProviderError("signUp", error);
+
+  if (error.code === "weak_password") {
+    return {
+      error:
+        "Password does not meet security requirements. Please choose a stronger password.",
+    };
+  }
+  if (error.code === "email_address_invalid") {
+    return { error: "Please enter a valid email address." };
+  }
+  if (error.code === "over_request_rate_limit" || error.status === 429) {
+    return { error: "Too many requests. Please try again later." };
+  }
+  if (error.code === "captcha_failed") {
+    return { error: "Verification failed. Please try again." };
+  }
+
+  return { error: "Unable to create account right now. Please try again." };
+}
+
 export async function signUp(
   _prev: AuthState,
   formData: FormData,
@@ -79,11 +134,11 @@ export async function signUp(
     email: parsed.data.email,
     password: parsed.data.password,
   });
-  if (error) return { error: error.message };
+  if (error) return mapSignUpError(error);
 
   if (data.session) redirect("/dashboard");
 
-  return { message: "Confirmation email sent. Please check your inbox." };
+  return { message: SIGN_UP_CONFIRMATION_MESSAGE };
 }
 
 export async function signOut() {
@@ -114,12 +169,16 @@ export async function requestPasswordReset(
     parsed.data.email,
     origin ? { redirectTo: `${origin}/auth/callback` } : undefined,
   );
-  if (error) return { error: error.message };
+  if (error) {
+    logAuthProviderError("requestPasswordReset", error);
+    // Only surface IP-level rate limits; per-email cooldowns and SMTP/user errors
+    // would distinguish existing accounts from unknown emails.
+    if (error.code === "over_request_rate_limit") {
+      return { error: "Too many requests. Please try again later." };
+    }
+  }
 
-  return {
-    message:
-      "If an account with that email exists, we sent a password reset link. Please check your inbox.",
-  };
+  return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
 }
 
 export async function updatePassword(
