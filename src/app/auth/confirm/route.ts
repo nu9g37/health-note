@@ -3,7 +3,7 @@ import { type NextRequest } from "next/server";
 import { createAuthRedirectResponse } from "@/lib/auth/origin";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
 import { signOutSafely } from "@/lib/auth/server";
-import { hasPasswordAuth } from "@/lib/auth/session";
+import { getSafeClaims, hasPasswordAuth } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -23,10 +23,11 @@ export async function GET(request: NextRequest) {
         return createAuthRedirectResponse(request, "/reset-password");
       }
 
-      const { data: claimsData } = await supabase.auth.getClaims(
+      const { claims } = await getSafeClaims(
+        supabase,
         data.session?.access_token,
       );
-      if (!hasPasswordAuth(claimsData?.claims)) {
+      if (!hasPasswordAuth(claims)) {
         await signOutSafely(supabase, "local");
         return createAuthRedirectResponse(
           request,

@@ -1,11 +1,12 @@
 import {
+  isAuthError,
   isAuthRetryableFetchError,
   type JwtPayload,
   type User,
 } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { getSessionKind } from "@/lib/auth/session";
+import { getSafeClaims, getSessionKind } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -28,8 +29,10 @@ export type VerifyActionSessionResult =
 /** Reads and classifies the current session once per React render pass. */
 export const getAuthSession = cache(async () => {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims ?? null;
+  const { claims, error } = await getSafeClaims(supabase);
+  if (error) {
+    console.warn("[auth] getAuthSession getClaims failed:", error.message);
+  }
   const kind = getSessionKind(claims);
   return { supabase, claims, kind };
 });
@@ -54,13 +57,14 @@ export async function verifyActionSession(
   expectedKind: ActionSessionKind,
 ): Promise<VerifyActionSessionResult> {
   const supabase = await createClient();
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-  if (claimsError && isAuthRetryableFetchError(claimsError)) {
+  const { claims, error: claimsError } = await getSafeClaims(supabase);
+  if (claimsError) {
+    if (isAuthError(claimsError) && !isAuthRetryableFetchError(claimsError)) {
+      return { ok: false, reason: "expired" };
+    }
     return { ok: false, reason: "unavailable" };
   }
 
-  const claims = claimsData?.claims ?? null;
   const kind = getSessionKind(claims);
   if (kind === "none" || !claims) {
     return { ok: false, reason: "expired" };
@@ -69,8 +73,21 @@ export async function verifyActionSession(
     return { ok: false, reason: "forbidden" };
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user || userData.user.id !== claims.sub) {
+  let userData: { user: User | null } | null = null;
+  let userError: unknown = null;
+  try {
+    const result = await supabase.auth.getUser();
+    userData = result.data;
+    userError = result.error;
+  } catch (error) {
+    console.warn(
+      "[auth] verifyActionSession getUser threw:",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return { ok: false, reason: "unavailable" };
+  }
+
+  if (userError || !userData?.user || userData.user.id !== claims.sub) {
     if (userError && isAuthRetryableFetchError(userError)) {
       return { ok: false, reason: "unavailable" };
     }

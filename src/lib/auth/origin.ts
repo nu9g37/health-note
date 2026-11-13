@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import {
+  getSafeRedirectPath,
+  parseLoopbackOrigin,
+} from "@/lib/auth/redirect";
+import { applyNoStoreHeaders } from "@/lib/supabase/cookies";
 
 type HeaderGetter = Pick<Headers, "get">;
-
-const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 function parseHttpOrigin(raw: string | undefined): string | null {
   const trimmed = raw?.trim();
@@ -59,27 +61,6 @@ function getConfiguredOrigin():
   return { state: "unset" };
 }
 
-function parseLoopbackOrigin(
-  hostHeader: string | null,
-  protocolHint?: string | null,
-): string | null {
-  const host = hostHeader?.trim();
-  if (!host || /[\s,@/\\?#]/.test(host)) return null;
-
-  const firstProto = protocolHint?.split(",")[0]?.trim().toLowerCase();
-  const proto =
-    firstProto === "https" || firstProto === "https:" ? "https" : "http";
-
-  try {
-    const parsed = new URL(`${proto}://${host}`);
-    if (parsed.username || parsed.password) return null;
-    if (!LOOPBACK_HOSTNAMES.has(parsed.hostname)) return null;
-    return parsed.origin;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Resolves a trusted origin from server environment configuration, or falls
  * back strictly to loopback `Host` values for local development.
@@ -120,12 +101,12 @@ export function createAuthRedirectResponse(
     request.nextUrl.protocol,
   );
 
-  if (trustedOrigin) {
-    return NextResponse.redirect(new URL(safePath, trustedOrigin));
-  }
+  const redirectResponse = trustedOrigin
+    ? NextResponse.redirect(new URL(safePath, trustedOrigin))
+    : new NextResponse(null, {
+        status: 307,
+        headers: { Location: safePath },
+      });
 
-  return new NextResponse(null, {
-    status: 307,
-    headers: { Location: safePath },
-  });
+  return applyNoStoreHeaders(redirectResponse);
 }

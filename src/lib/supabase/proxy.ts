@@ -1,6 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionKind } from "@/lib/auth/session";
+import { getSafeClaims, getSessionKind } from "@/lib/auth/session";
+import {
+  applyNoStoreHeaders,
+  getSupabaseCookieOptions,
+} from "@/lib/supabase/cookies";
 
 const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/forgot-password", "/auth"];
 const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password"];
@@ -14,16 +18,21 @@ function matches(pathname: string, paths: string[]) {
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  let cookieCacheHeaders: Record<string, string> = {};
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      cookieOptions: getSupabaseCookieOptions(
+        request.headers,
+        request.nextUrl.protocol,
+      ),
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headersToSet) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
@@ -31,32 +40,48 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );
+          if (Object.keys(headersToSet).length > 0) {
+            cookieCacheHeaders = { ...cookieCacheHeaders, ...headersToSet };
+          }
         },
       },
     },
   );
 
-  const { data } = await supabase.auth.getClaims();
-  const sessionKind = getSessionKind(data?.claims);
+  const { claims, error: claimsError } = await getSafeClaims(supabase);
+  if (claimsError) {
+    console.warn("[auth] proxy getClaims failed:", claimsError.message);
+  }
+  const sessionKind = getSessionKind(claims);
   const { pathname } = request.nextUrl;
 
-  const withSessionCookies = <T extends NextResponse>(target: T): T => {
-    response.cookies.getAll().forEach((c) => target.cookies.set(c));
-    return target;
+  const finalizeResponse = <T extends NextResponse>(
+    target: T,
+    options?: { copySessionCookies?: boolean },
+  ): T => {
+    if (options?.copySessionCookies) {
+      response.cookies.getAll().forEach((c) => target.cookies.set(c));
+    }
+    Object.entries(cookieCacheHeaders).forEach(([key, value]) =>
+      target.headers.set(key, value),
+    );
+    return applyNoStoreHeaders(target);
   };
 
   if (matches(pathname, ["/api"])) {
     if (sessionKind === "none") {
-      return withSessionCookies(
+      return finalizeResponse(
         NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+        { copySessionCookies: true },
       );
     }
     if (sessionKind === "recovery") {
-      return withSessionCookies(
+      return finalizeResponse(
         NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+        { copySessionCookies: true },
       );
     }
-    return response;
+    return finalizeResponse(response);
   }
 
   // Let Next.js Server Action POSTs reach their action handler so expired/unauthorized
@@ -64,7 +89,7 @@ export async function updateSession(request: NextRequest) {
   const isServerAction =
     request.method === "POST" && request.headers.has("next-action");
   if (isServerAction) {
-    return response;
+    return finalizeResponse(response);
   }
 
   const redirectTo = (path: string) => {
@@ -73,7 +98,9 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     const status =
       request.method === "GET" || request.method === "HEAD" ? 307 : 303;
-    return withSessionCookies(NextResponse.redirect(url, status));
+    return finalizeResponse(NextResponse.redirect(url, status), {
+      copySessionCookies: true,
+    });
   };
 
   if (sessionKind === "none" && !matches(pathname, PUBLIC_PATHS)) {
@@ -93,5 +120,5 @@ export async function updateSession(request: NextRequest) {
     return redirectTo("/dashboard");
   }
 
-  return response;
+  return finalizeResponse(response);
 }

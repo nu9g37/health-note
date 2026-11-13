@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { getSessionKind } from "@/lib/auth/session";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 export default function HomePage({ searchParams }: PageProps<"/">) {
   return (
@@ -32,9 +31,7 @@ async function HomeRedirect({
     return redirect("/sign-in?error=invalid-link");
   }
 
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const sessionKind = getSessionKind(data?.claims);
+  const { kind: sessionKind } = await getAuthSession();
 
   if (sessionKind === "authenticated") return redirect("/dashboard");
   if (sessionKind === "recovery") return redirect("/reset-password");
