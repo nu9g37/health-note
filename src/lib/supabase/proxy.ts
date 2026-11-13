@@ -39,6 +39,26 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const sessionKind = getSessionKind(data?.claims);
   const { pathname } = request.nextUrl;
+
+  const withSessionCookies = <T extends NextResponse>(target: T): T => {
+    response.cookies.getAll().forEach((c) => target.cookies.set(c));
+    return target;
+  };
+
+  if (matches(pathname, ["/api"])) {
+    if (sessionKind === "none") {
+      return withSessionCookies(
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      );
+    }
+    if (sessionKind === "recovery") {
+      return withSessionCookies(
+        NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      );
+    }
+    return response;
+  }
+
   // Let Next.js Server Action POSTs reach their action handler so expired/unauthorized
   // state returns serialized action errors or framework redirects cleanly instead of 307.
   const isServerAction =
@@ -53,9 +73,7 @@ export async function updateSession(request: NextRequest) {
     url.search = "";
     const status =
       request.method === "GET" || request.method === "HEAD" ? 307 : 303;
-    const redirect = NextResponse.redirect(url, status);
-    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
-    return redirect;
+    return withSessionCookies(NextResponse.redirect(url, status));
   };
 
   if (sessionKind === "none" && !matches(pathname, PUBLIC_PATHS)) {
