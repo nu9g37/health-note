@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { hasPasswordAuth } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -17,9 +18,19 @@ export async function GET(request: NextRequest) {
     if (!error) {
       const isRecovery =
         "redirectType" in data && data.redirectType === "recovery";
-      const destination =
-        next ?? (isRecovery ? "/reset-password" : "/dashboard");
-      return NextResponse.redirect(`${origin}${destination}`);
+      if (isRecovery) {
+        return NextResponse.redirect(`${origin}/reset-password`);
+      }
+
+      const { data: claimsData } = await supabase.auth.getClaims(
+        data.session?.access_token,
+      );
+      if (!hasPasswordAuth(claimsData?.claims)) {
+        await supabase.auth.signOut({ scope: "local" });
+        return NextResponse.redirect(`${origin}/sign-in?status=email-confirmed`);
+      }
+
+      return NextResponse.redirect(`${origin}${next ?? "/dashboard"}`);
     }
   }
 

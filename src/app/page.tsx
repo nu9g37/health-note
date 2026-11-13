@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { getSessionKind } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
 export default function HomePage({ searchParams }: PageProps<"/">) {
@@ -33,6 +34,9 @@ async function HomeRedirect({
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
+  const sessionKind = getSessionKind(data?.claims);
 
-  return redirect(data?.claims ? "/dashboard" : "/sign-in");
+  if (sessionKind === "authenticated") return redirect("/dashboard");
+  if (sessionKind === "recovery") return redirect("/reset-password");
+  return redirect("/sign-in");
 }

@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import { signOut } from "@/actions/auth";
 import { BpForm } from "@/components/bp/bp-form";
 import { BpTable } from "@/components/bp/bp-table";
+import { requireAuthenticatedSession } from "@/lib/auth/server";
 import { getBpLogs } from "@/lib/queries/bp-logs";
-import { createClient } from "@/lib/supabase/server";
 
 export default function DashboardPage() {
   return (
@@ -44,13 +44,13 @@ export default function DashboardPage() {
 
 async function UserEmail() {
   await connection();
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  return <p className="text-sm text-gray-600">{data?.claims?.email}</p>;
+  const { claims } = await requireAuthenticatedSession();
+  return <p className="text-sm text-gray-600">{claims.email}</p>;
 }
 
 async function History() {
   await connection();
+  await requireAuthenticatedSession();
   const logs = await getBpLogs();
   return <BpTable logs={logs} />;
 }

@@ -1,9 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthSession } from "@/lib/auth/server";
 import type { BpLog } from "@/types";
 
 export async function getBpLogs(limit = 50): Promise<BpLog[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const session = await getAuthSession();
+  if (session.kind !== "authenticated") return [];
+
+  const { data, error } = await session.supabase
     .from("blood_pressure_logs")
     .select("*")
     .order("measured_at", { ascending: false })

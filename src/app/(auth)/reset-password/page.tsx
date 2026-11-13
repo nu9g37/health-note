@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthSession } from "@/lib/auth/server";
 
 export default function ResetPasswordPage() {
   return (
@@ -20,9 +20,9 @@ export default function ResetPasswordPage() {
 
 async function ResetPasswordGuard() {
   await connection();
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  if (!data?.claims?.sub) redirect("/sign-in");
+  const session = await getAuthSession();
+  if (session.kind === "none") redirect("/sign-in");
+  if (session.kind === "authenticated") redirect("/dashboard");
 
   return <ResetPasswordForm />;
 }

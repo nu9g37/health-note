@@ -4,6 +4,8 @@ import { SignInForm } from "@/components/auth/sign-in-form";
 const STATUS_MESSAGES: Record<string, string> = {
   "password-updated":
     "Your password has been updated. Please sign in with your new password.",
+  "email-confirmed":
+    "Your email has been confirmed. Please sign in to continue.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

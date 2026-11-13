@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { signOut, updatePassword } from "@/actions/auth";
+import { cancelPasswordReset, updatePassword } from "@/actions/auth";
 
 export function ResetPasswordForm() {
   const [state, action, pending] = useActionState(updatePassword, undefined);
@@ -47,7 +47,7 @@ export function ResetPasswordForm() {
         </button>
       </form>
 
-      <form action={signOut} className="text-center">
+      <form action={cancelPasswordReset} className="text-center">
         <button type="submit" className="text-sm underline">
           Back to sign in
         </button>

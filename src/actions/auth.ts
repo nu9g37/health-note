@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getSessionKind } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import {
   forgotPasswordSchema,
@@ -91,6 +92,12 @@ export async function signOut() {
   redirect("/sign-in");
 }
 
+export async function cancelPasswordReset() {
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "local" });
+  redirect("/sign-in");
+}
+
 export async function requestPasswordReset(
   _prev: AuthState,
   formData: FormData,
@@ -127,9 +134,15 @@ export async function updatePassword(
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims?.sub) {
+  const sessionKind = getSessionKind(data?.claims);
+  if (sessionKind === "none") {
     return {
       error: "Your reset session has expired. Please request a new reset link.",
+    };
+  }
+  if (sessionKind !== "recovery") {
+    return {
+      error: "Password reset requires a valid recovery link.",
     };
   }
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getSessionKind } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { bpFormSchema } from "@/lib/validations/bp";
 
@@ -22,8 +23,9 @@ type ParsedBpPayload =
 
 async function getAuthContext() {
   const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
+  const { data } = await supabase.auth.getClaims();
+  if (getSessionKind(data?.claims) !== "authenticated") return null;
+  const userId = data?.claims?.sub;
   if (!userId) return null;
   return { supabase, userId };
 }

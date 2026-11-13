@@ -1,8 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSessionKind } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/forgot-password", "/auth"];
 const AUTH_PAGES = ["/sign-in", "/sign-up", "/forgot-password"];
+const RECOVERY_ALLOWED_PATHS = ["/reset-password", "/auth"];
 
 function matches(pathname: string, paths: string[]) {
   return paths.some((p) =>
@@ -35,7 +37,7 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const isLoggedIn = !!data?.claims;
+  const sessionKind = getSessionKind(data?.claims);
   const { pathname } = request.nextUrl;
 
   const redirectTo = (path: string) => {
@@ -47,10 +49,20 @@ export async function updateSession(request: NextRequest) {
     return redirect;
   };
 
-  if (!isLoggedIn && !matches(pathname, PUBLIC_PATHS)) {
+  if (sessionKind === "none" && !matches(pathname, PUBLIC_PATHS)) {
     return redirectTo("/sign-in");
   }
-  if (isLoggedIn && matches(pathname, AUTH_PAGES)) {
+  if (
+    sessionKind === "recovery" &&
+    pathname !== "/" &&
+    !matches(pathname, RECOVERY_ALLOWED_PATHS)
+  ) {
+    return redirectTo("/reset-password");
+  }
+  if (
+    sessionKind === "authenticated" &&
+    matches(pathname, [...AUTH_PAGES, "/reset-password"])
+  ) {
     return redirectTo("/dashboard");
   }
 
