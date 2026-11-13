@@ -9,15 +9,26 @@ export type BpFormState =
   | { error?: string; success?: boolean }
   | undefined;
 
-export async function createBpLog(
-  _prev: BpFormState,
-  formData: FormData,
-): Promise<BpFormState> {
+type ParsedBpPayload =
+  | {
+      data: {
+        systolic: number;
+        diastolic: number;
+        pulse: number | null;
+        measured_at?: string;
+      };
+    }
+  | { error: string };
+
+async function getAuthContext() {
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
-  if (!userId) return { error: "You must be signed in" };
+  if (!userId) return null;
+  return { supabase, userId };
+}
 
+function parseBpFormData(formData: FormData): ParsedBpPayload {
   const measuredAtRaw = formData.get("measuredAt");
   const parsed = bpFormSchema.safeParse({
     systolic: formData.get("systolic"),
@@ -33,14 +44,59 @@ export async function createBpLog(
     return { error: "Invalid date" };
   }
 
-  const { error } = await supabase.from("blood_pressure_logs").insert({
-    user_id: userId,
-    systolic,
-    diastolic,
-    pulse: pulse ?? null,
-    ...(measuredAt ? { measured_at: new Date(measuredAt).toISOString() } : {}),
+  return {
+    data: {
+      systolic,
+      diastolic,
+      pulse: pulse ?? null,
+      ...(measuredAt ? { measured_at: new Date(measuredAt).toISOString() } : {}),
+    },
+  };
+}
+
+export async function createBpLog(
+  _prev: BpFormState,
+  formData: FormData,
+): Promise<BpFormState> {
+  const auth = await getAuthContext();
+  if (!auth) return { error: "You must be signed in" };
+
+  const parsed = parseBpFormData(formData);
+  if ("error" in parsed) return { error: parsed.error };
+
+  const { error } = await auth.supabase.from("blood_pressure_logs").insert({
+    user_id: auth.userId,
+    ...parsed.data,
   });
   if (error) return { error: error.message };
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateBpLog(
+  _prev: BpFormState,
+  formData: FormData,
+): Promise<BpFormState> {
+  const auth = await getAuthContext();
+  if (!auth) return { error: "You must be signed in" };
+
+  const idResult = z.uuid().safeParse(formData.get("id"));
+  if (!idResult.success) return { error: "Invalid record ID" };
+
+  const parsed = parseBpFormData(formData);
+  if ("error" in parsed) return { error: parsed.error };
+
+  const { data, error } = await auth.supabase
+    .from("blood_pressure_logs")
+    .update(parsed.data)
+    .eq("id", idResult.data)
+    .eq("user_id", auth.userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!data) return { error: "Record not found" };
 
   revalidatePath("/dashboard");
   return { success: true };
@@ -50,16 +106,14 @@ export async function deleteBpLog(formData: FormData) {
   const parsed = z.uuid().safeParse(formData.get("id"));
   if (!parsed.success) return;
 
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
-  if (!userId) return;
+  const auth = await getAuthContext();
+  if (!auth) return;
 
-  await supabase
+  await auth.supabase
     .from("blood_pressure_logs")
     .delete()
     .eq("id", parsed.data)
-    .eq("user_id", userId);
+    .eq("user_id", auth.userId);
 
   revalidatePath("/dashboard");
 }

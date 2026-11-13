@@ -1,30 +1,65 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
-import { createBpLog } from "@/actions/bp-logs";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useRef,
+  type SubmitEvent,
+} from "react";
+import { createBpLog, updateBpLog } from "@/actions/bp-logs";
+import type { BpLog } from "@/types";
 
-export function BpForm() {
-  const [state, action, pending] = useActionState(createBpLog, undefined);
+function toDateTimeLocalValue(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+interface BpFormProps {
+  initialLog?: BpLog;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
+  const isEditing = Boolean(initialLog);
+  const [state, action, pending] = useActionState(
+    isEditing ? updateBpLog : createBpLog,
+    undefined,
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (state?.success) formRef.current?.reset();
-  }, [state]);
+    if (!state?.success) return;
+    if (isEditing) {
+      onSuccess?.();
+    } else {
+      formRef.current?.reset();
+    }
+  }, [state, isEditing, onSuccess]);
 
-  function handleAction(formData: FormData) {
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     const local = formData.get("measuredAt");
     if (typeof local === "string" && local) {
       formData.set("measuredAt", new Date(local).toISOString());
     }
-    action(formData);
+    startTransition(() => {
+      action(formData);
+    });
   }
 
   return (
     <form
       ref={formRef}
-      action={handleAction}
+      onSubmit={handleSubmit}
       className="flex flex-col gap-4 rounded-lg border p-4"
     >
+      {initialLog && <input type="hidden" name="id" value={initialLog.id} />}
+
       <div className="grid grid-cols-3 gap-3">
         <label className="flex flex-col gap-1 text-sm">
           Systolic
@@ -34,6 +69,7 @@ export function BpForm() {
             inputMode="numeric"
             required
             placeholder="120"
+            defaultValue={initialLog?.systolic}
             className="rounded-lg border px-3 py-3 text-lg"
           />
         </label>
@@ -45,6 +81,7 @@ export function BpForm() {
             inputMode="numeric"
             required
             placeholder="80"
+            defaultValue={initialLog?.diastolic}
             className="rounded-lg border px-3 py-3 text-lg"
           />
         </label>
@@ -55,16 +92,21 @@ export function BpForm() {
             type="number"
             inputMode="numeric"
             placeholder="70"
+            defaultValue={initialLog?.pulse ?? ""}
             className="rounded-lg border px-3 py-3 text-lg"
           />
         </label>
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        Measured at (optional, defaults to now)
+        {isEditing ? "Measured at" : "Measured at (optional, defaults to now)"}
         <input
           name="measuredAt"
           type="datetime-local"
+          required={isEditing}
+          defaultValue={
+            initialLog ? toDateTimeLocalValue(initialLog.measured_at) : undefined
+          }
           className="rounded-lg border px-3 py-3 text-base"
         />
       </label>
@@ -75,13 +117,25 @@ export function BpForm() {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50"
-      >
-        {pending ? "Saving..." : "Save"}
-      </button>
+      <div className="flex gap-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="flex-1 rounded-lg border px-4 py-3 text-base font-medium disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-1 rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50"
+        >
+          {pending ? "Saving..." : isEditing ? "Save changes" : "Save"}
+        </button>
+      </div>
     </form>
   );
 }
