@@ -86,6 +86,11 @@ function mapSignUpError(error: AuthErrorLike): AuthState {
   return { error: "Unable to create account right now. Please try again." };
 }
 
+async function getAuthCallbackUrl(): Promise<string | undefined> {
+  const origin = getTrustedAuthOrigin(await headers());
+  return origin ? `${origin}/auth/callback` : undefined;
+}
+
 export async function signUp(
   _prev: AuthState,
   formData: FormData,
@@ -97,10 +102,12 @@ export async function signUp(
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
+  const emailRedirectTo = await getAuthCallbackUrl();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
+    options: emailRedirectTo ? { emailRedirectTo } : undefined,
   });
   if (error) return mapSignUpError(error);
 
@@ -131,11 +138,11 @@ export async function requestPasswordReset(
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const origin = getTrustedAuthOrigin(await headers());
+  const redirectTo = await getAuthCallbackUrl();
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(
     parsed.data.email,
-    origin ? { redirectTo: `${origin}/auth/callback` } : undefined,
+    redirectTo ? { redirectTo } : undefined,
   );
   if (error) {
     logAuthProviderError("requestPasswordReset", error);
