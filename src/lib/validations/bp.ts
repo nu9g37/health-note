@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  BP_IMAGE_MAX_BYTES,
+  isAllowedBpImageFile,
+  isUploadedFile,
+} from "@/lib/bp/image";
 
 export const bpFormSchema = z
   .object({
@@ -22,6 +27,25 @@ export const bpFormSchema = z
         .optional(),
     ),
     measuredAt: z.string().optional(),
+    image: z.preprocess(
+      (v) => {
+        if (v == null || v === "") return undefined;
+        if (isUploadedFile(v) && v.size === 0) return undefined;
+        return v;
+      },
+      z
+        .custom<File>(isUploadedFile, "Invalid image file")
+        .refine((file) => file.size <= BP_IMAGE_MAX_BYTES, {
+          message: "Image must be 5 MB or smaller",
+        })
+        .refine((file) => isAllowedBpImageFile(file), {
+          message: "Image must be a JPEG, PNG, WebP, or HEIC file",
+        })
+        .optional(),
+    ),
+    removeImage: z
+      .preprocess((v) => v === "true" || v === true, z.boolean())
+      .optional(),
   })
   .refine((data) => data.systolic > data.diastolic, {
     message: "Systolic must be greater than diastolic",

@@ -106,7 +106,7 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border bg-background p-4 text-foreground shadow-lg outline-none"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-lg border bg-background p-4 text-foreground shadow-lg outline-none"
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 id={titleId} className="text-lg font-semibold">

@@ -2,12 +2,13 @@
 
 import { useActionState, useEffect, useId, useRef } from "react";
 import { deleteBpLog } from "@/actions/bp-logs";
+import { BpImage } from "@/components/bp/bp-image";
 import { BpStatusBadge } from "@/components/bp/bp-status-badge";
 import { Modal } from "@/components/ui/modal";
-import type { BpLog } from "@/types";
+import type { BpLogWithImageUrl } from "@/types";
 
 interface DeleteBpDialogProps {
-  log: BpLog;
+  log: BpLogWithImageUrl;
   onClose: () => void;
 }
 
@@ -40,18 +41,29 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
           undone.
         </p>
 
-        <div className="flex items-center justify-between rounded-lg border p-3 text-sm">
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">
-              {log.systolic}/{log.diastolic} mmHg
-              {log.pulse !== null ? ` · Pulse ${log.pulse}` : ""}
-            </span>
-            <time
-              suppressHydrationWarning
-              className="text-xs text-gray-500 dark:text-gray-400"
-            >
-              {new Date(log.measured_at).toLocaleString()}
-            </time>
+        <div className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+          <div className="flex items-center gap-3">
+            {log.imageUrl && (
+              <BpImage
+                src={log.imageUrl}
+                alt={`Blood pressure ${log.systolic}/${log.diastolic}`}
+                width={48}
+                height={48}
+                className="h-12 w-12 shrink-0 rounded border object-cover"
+              />
+            )}
+            <div className="flex flex-col gap-1">
+              <span className="font-medium">
+                {log.systolic}/{log.diastolic} mmHg
+                {log.pulse !== null ? ` · Pulse ${log.pulse}` : ""}
+              </span>
+              <time
+                suppressHydrationWarning
+                className="text-xs text-gray-500 dark:text-gray-400"
+              >
+                {new Date(log.measured_at).toLocaleString()}
+              </time>
+            </div>
           </div>
           <BpStatusBadge systolic={log.systolic} diastolic={log.diastolic} />
         </div>
