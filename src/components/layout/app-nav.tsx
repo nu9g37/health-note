@@ -12,7 +12,7 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/history", label: "History" },
   { href: "/trends", label: "Trends" },
-  // Add { href: "/settings", label: "Settings" } when Phase 2 is ready.
+  { href: "/settings", label: "Settings" },
 ];
 
 function NavLinkList({ pathname }: { pathname: string | null }) {
@@ -31,7 +31,7 @@ function NavLinkList({ pathname }: { pathname: string | null }) {
             key={item.href}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`rounded-lg px-3 py-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+            className={`min-w-0 truncate rounded-lg px-1.5 py-2.5 text-center text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:px-3 sm:py-2 sm:text-sm ${
               isActive
                 ? "bg-surface text-foreground shadow-sm"
                 : "text-muted hover:text-foreground"

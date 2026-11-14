@@ -68,7 +68,7 @@ function getServerSnapshot(): null {
   return null;
 }
 
-/** Top-right Dark Mode toggle control synced with localStorage and system preference. */
+/** Dark Mode toggle control synced with localStorage and system preference. */
 export function ThemeToggle() {
   const toggleId = useId();
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -94,10 +94,10 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
+    <div className="inline-flex shrink-0 items-center gap-2">
       <label
         htmlFor={toggleId}
-        className="cursor-pointer select-none text-sm font-medium text-foreground"
+        className="cursor-pointer select-none whitespace-nowrap text-sm font-medium text-foreground"
       >
         Dark Mode
       </label>

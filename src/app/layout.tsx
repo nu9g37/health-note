@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans_Thai } from "next/font/google";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -28,10 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body
         className={`${ibmPlexSansThai.className} min-h-full flex flex-col bg-background text-foreground transition-colors`}
       >
-        <div className="flex w-full justify-end px-4 pt-4 sm:px-6">
-          <ThemeToggle />
-        </div>
-        <div className="flex flex-1 flex-col">{children}</div>
+        {children}
       </body>
     </html>
   );
