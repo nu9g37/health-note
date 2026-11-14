@@ -9,11 +9,13 @@ import {
   useState,
   useSyncExternalStore,
   type ChangeEvent,
+  type DragEvent,
   type SubmitEvent,
   type SyntheticEvent,
 } from "react";
 import { createBpLog, updateBpLog, type BpFormState } from "@/actions/bp-logs";
 import { BpImage } from "@/components/bp/bp-image";
+import { BpStatusBadge } from "@/components/bp/bp-status-badge";
 import { compressBpImage } from "@/lib/bp/compress-image";
 import { BP_IMAGE_ACCEPT, formatBytes } from "@/lib/bp/image";
 import type { BpLogWithImageUrl } from "@/types";
@@ -96,14 +98,158 @@ interface BpFormProps {
   initialLog?: BpLogWithImageUrl;
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** Omits the outer card frame when rendered inside an existing container such as `Modal`. */
+  embedded?: boolean;
 }
 
-export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
+const FOCUS_RING_CLASS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50";
+
+const READING_INPUT_CLASS =
+  "w-full min-w-0 rounded-lg border border-border bg-background py-2.5 pl-3 text-lg font-semibold tabular-nums text-foreground placeholder:font-normal placeholder:text-muted/50 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
+
+function parseWholeNumberInRange(
+  raw: string,
+  min: number,
+  max: number,
+): number | null {
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) return null;
+  return parsed;
+}
+
+function PulseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      className="h-4 w-4 shrink-0 text-muted"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.5 10.5h3l2-5 3.25 9 2.25-4h4.5"
+      />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      className="h-3.5 w-3.5 shrink-0 text-muted"
+    >
+      <circle cx="10" cy="10" r="7" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10 6.5V10l2.5 1.5"
+      />
+    </svg>
+  );
+}
+
+function PhotoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      className="h-4 w-4 shrink-0 text-muted"
+    >
+      <rect x="3" y="4" width="14" height="12" rx="2" />
+      <circle cx="7.5" cy="8.25" r="1.25" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m5 14 3.5-3.5 2.5 2.5 2-2 3 3"
+      />
+    </svg>
+  );
+}
+
+interface ReadingFieldProps {
+  name: string;
+  label: string;
+  unit: string;
+  placeholder: string;
+  defaultValue?: number | string;
+  required?: boolean;
+  optional?: boolean;
+  className?: string;
+  paddingRightClass: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+}
+
+function ReadingField({
+  name,
+  label,
+  unit,
+  placeholder,
+  defaultValue,
+  required = false,
+  optional = false,
+  className = "",
+  paddingRightClass,
+  onChange,
+}: ReadingFieldProps) {
+  return (
+    <label className={`flex min-w-0 flex-col gap-1 ${className}`}>
+      <span className="flex items-center justify-between gap-1 text-xs font-medium text-muted">
+        <span>{label}</span>
+        {optional && (
+          <span className="text-[11px] font-normal text-muted/80">
+            Optional
+          </span>
+        )}
+      </span>
+      <div className="relative flex items-center">
+        <input
+          name={name}
+          type="number"
+          inputMode="numeric"
+          required={required}
+          placeholder={placeholder}
+          defaultValue={defaultValue}
+          onChange={onChange}
+          className={`${READING_INPUT_CLASS} ${paddingRightClass}`}
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-2.5 text-[11px] font-medium text-muted"
+        >
+          {unit}
+        </span>
+      </div>
+    </label>
+  );
+}
+
+export function BpForm({
+  initialLog,
+  onSuccess,
+  onCancel,
+  embedded,
+}: BpFormProps) {
   const isEditing = Boolean(initialLog);
+  const isEmbedded = embedded ?? Boolean(onCancel);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const measuredAtInputRef = useRef<HTMLInputElement>(null);
   const compressionRequestRef = useRef(0);
+  const measuredAtId = useId();
   const measuredAtErrorId = useId();
   const maxMeasuredAt = useSyncExternalStore(
     subscribeToCurrentMinute,
@@ -111,11 +257,18 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
     getServerMinuteSnapshot,
   );
 
+  const [systolicInput, setSystolicInput] = useState(() =>
+    initialLog ? String(initialLog.systolic) : "",
+  );
+  const [diastolicInput, setDiastolicInput] = useState(() =>
+    initialLog ? String(initialLog.diastolic) : "",
+  );
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
     null,
   );
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [compressing, setCompressing] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [measuredAtError, setMeasuredAtError] = useState<string | null>(null);
 
@@ -129,8 +282,11 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         compressionRequestRef.current += 1;
         formRef.current?.reset();
         if (fileInputRef.current) fileInputRef.current.value = "";
+        setSystolicInput("");
+        setDiastolicInput("");
         setSelectedImage(null);
         setRemoveExistingImage(false);
+        setIsDraggingImage(false);
         setImageError(null);
         setMeasuredAtError(null);
       }
@@ -158,10 +314,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
     }
   }, [state, isEditing, onSuccess]);
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    if (!file) return;
-
+  async function processImageFile(file: File) {
     const requestId = ++compressionRequestRef.current;
     setCompressing(true);
     setImageError(null);
@@ -192,10 +345,38 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
     }
   }
 
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    await processImageFile(file);
+  }
+
+  function handleImageDragOver(event: DragEvent<HTMLButtonElement>) {
+    if (pending || compressing) return;
+    event.preventDefault();
+    setIsDraggingImage(true);
+  }
+
+  function handleImageDragLeave() {
+    setIsDraggingImage(false);
+  }
+
+  async function handleImageDrop(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setIsDraggingImage(false);
+    if (pending || compressing) return;
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    await processImageFile(file);
+  }
+
   function handleRemoveImage() {
     compressionRequestRef.current += 1;
     setCompressing(false);
     setSelectedImage(null);
+    setIsDraggingImage(false);
     setImageError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (initialLog?.image) {
@@ -260,62 +441,98 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
   }
 
   const hasExistingImage = Boolean(initialLog?.image) && !removeExistingImage;
+  const showPendingRemovalNotice =
+    !selectedImage && removeExistingImage && Boolean(initialLog?.image);
   const activePreviewUrl =
     selectedImage?.previewUrl ??
     (hasExistingImage ? (initialLog?.imageUrl ?? null) : null);
+
+  const previewSystolic = parseWholeNumberInRange(systolicInput, 50, 300);
+  const previewDiastolic = parseWholeNumberInRange(diastolicInput, 30, 200);
+  const canShowPreviewBadge =
+    previewSystolic !== null &&
+    previewDiastolic !== null &&
+    previewSystolic > previewDiastolic;
 
   return (
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm"
+      className={
+        isEmbedded
+          ? "flex flex-col gap-4"
+          : "flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm"
+      }
     >
       {initialLog && <input type="hidden" name="id" value={initialLog.id} />}
 
-      <div className="grid grid-cols-3 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          Systolic
-          <input
+      <div className="flex flex-col gap-2.5">
+        <div className="flex min-h-6 items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+            <PulseIcon />
+            <span>Readings</span>
+          </span>
+          {canShowPreviewBadge && (
+            <BpStatusBadge
+              systolic={previewSystolic}
+              diastolic={previewDiastolic}
+            />
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 min-[420px]:grid-cols-3 sm:gap-3">
+          <ReadingField
             name="systolic"
-            type="number"
-            inputMode="numeric"
-            required
+            label="Systolic"
+            unit="mmHg"
             placeholder="120"
             defaultValue={initialLog?.systolic}
-            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Diastolic
-          <input
-            name="diastolic"
-            type="number"
-            inputMode="numeric"
             required
+            paddingRightClass="pr-13"
+            onChange={(event) => setSystolicInput(event.currentTarget.value)}
+          />
+          <ReadingField
+            name="diastolic"
+            label="Diastolic"
+            unit="mmHg"
             placeholder="80"
             defaultValue={initialLog?.diastolic}
-            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            required
+            paddingRightClass="pr-13"
+            onChange={(event) => setDiastolicInput(event.currentTarget.value)}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Pulse
-          <input
+          <ReadingField
             name="pulse"
-            type="number"
-            inputMode="numeric"
+            label="Pulse"
+            unit="bpm"
             placeholder="70"
             defaultValue={initialLog?.pulse ?? ""}
-            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            optional
+            className="col-span-2 min-[420px]:col-span-1"
+            paddingRightClass="pr-11"
           />
-        </label>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="flex flex-col gap-1 text-sm">
-          {isEditing
-            ? "Measured at"
-            : "Measured at (optional, defaults to now)"}
+      <div className="flex flex-col gap-4 border-t border-border pt-4">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label
+              htmlFor={measuredAtId}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted"
+            >
+              <ClockIcon />
+              <span>Measured at</span>
+            </label>
+            {!isEditing && (
+              <span className="text-[11px] text-muted">
+                Optional · defaults to now
+              </span>
+            )}
+          </div>
+
           <input
+            id={measuredAtId}
             ref={measuredAtInputRef}
             name="measuredAt"
             type="datetime-local"
@@ -331,122 +548,193 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             onChange={handleMeasuredAtChange}
             aria-invalid={Boolean(measuredAtError) || undefined}
             aria-describedby={measuredAtError ? measuredAtErrorId : undefined}
-            className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className={`w-full min-w-0 rounded-lg border bg-background px-3 py-2.5 text-sm text-foreground transition-colors focus:outline-none focus:ring-2 ${
+              measuredAtError
+                ? "border-accent focus:border-accent focus:ring-accent/30"
+                : "border-border focus:border-primary focus:ring-primary/30"
+            }`}
           />
-        </label>
 
-        {measuredAtError && (
-          <p
-            id={measuredAtErrorId}
-            role="alert"
-            className="text-xs text-accent-text"
-          >
-            {measuredAtError}
-          </p>
-        )}
-      </div>
+          {measuredAtError && (
+            <p
+              id={measuredAtErrorId}
+              role="alert"
+              className="text-xs text-accent-text"
+            >
+              {measuredAtError}
+            </p>
+          )}
+        </div>
 
-      <div className="flex flex-col gap-2 text-sm">
-        <label className="flex flex-col gap-1">
-          Image (optional)
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
+              <PhotoIcon />
+              <span>Image</span>
+            </span>
+            <span className="text-[11px] text-muted">Optional · max 5 MB</span>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
+            tabIndex={-1}
+            aria-hidden="true"
             accept={BP_IMAGE_ACCEPT}
             onChange={handleImageChange}
             disabled={pending || compressing}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded file:border-0 file:bg-surface-subtle file:px-3 file:py-1 file:text-sm file:font-medium file:text-foreground"
+            className="sr-only"
           />
-        </label>
 
-        {compressing && (
-          <p className="text-xs text-muted">Compressing image...</p>
-        )}
-
-        {imageError && (
-          <p role="alert" className="text-xs text-accent-text">
-            {imageError}
-          </p>
-        )}
-
-        {(selectedImage || hasExistingImage) && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-2">
-            <div className="flex min-w-0 items-center gap-3">
-              {activePreviewUrl ? (
-                <BpImage
-                  src={activePreviewUrl}
-                  alt="Blood pressure monitor preview"
-                  width={64}
-                  height={64}
-                  className="h-16 w-16 shrink-0 rounded border border-border object-cover"
-                  fallback={
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
-                      No preview
-                    </span>
-                  }
-                />
-              ) : (
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
-                  Attached
+          {!selectedImage && !hasExistingImage && !showPendingRemovalNotice && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleImageDragOver}
+              onDragLeave={handleImageDragLeave}
+              onDrop={handleImageDrop}
+              disabled={pending || compressing}
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS} ${
+                isDraggingImage
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-background hover:border-primary/60 hover:bg-surface-subtle/60"
+              }`}
+            >
+              <span className="pointer-events-none flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+                <PhotoIcon />
+              </span>
+              <span className="pointer-events-none min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">
+                  {compressing ? "Compressing image..." : "Attach monitor photo"}
                 </span>
-              )}
+                <span className="block truncate text-xs text-muted">
+                  JPEG, PNG, WebP, or HEIC
+                </span>
+              </span>
+            </button>
+          )}
 
-              <div className="min-w-0 text-xs text-foreground">
-                {selectedImage ? (
-                  <>
-                    <p className="truncate font-medium">
-                      {selectedImage.file.name}
-                    </p>
-                    <p className="text-muted">
-                      {formatBytes(selectedImage.file.size)}
-                      {selectedImage.compressed ? " (compressed)" : ""}
-                    </p>
-                  </>
+          {(selectedImage || hasExistingImage) && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-2.5">
+              <div className="flex min-w-0 items-center gap-3">
+                {activePreviewUrl ? (
+                  <BpImage
+                    src={activePreviewUrl}
+                    alt="Blood pressure monitor preview"
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-border object-cover"
+                    fallback={
+                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
+                        No preview
+                      </span>
+                    }
+                  />
                 ) : (
-                  <p className="font-medium">Existing image attached</p>
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
+                    Attached
+                  </span>
                 )}
+
+                <div className="min-w-0">
+                  {selectedImage ? (
+                    <>
+                      <p className="truncate text-xs font-medium text-foreground">
+                        {selectedImage.file.name}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted">
+                        {formatBytes(selectedImage.file.size)}
+                        {selectedImage.compressed ? " · compressed" : ""}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-medium text-foreground">
+                        Existing image attached
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted">
+                        Saved with this record
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending || compressing}
+                  className={`cursor-pointer rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+                >
+                  {compressing ? "..." : "Replace"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  disabled={pending}
+                  className="cursor-pointer rounded-lg border border-accent/40 bg-surface px-2.5 py-1.5 text-xs font-medium text-accent-text transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Remove
+                </button>
               </div>
             </div>
+          )}
 
-            <button
-              type="button"
-              onClick={handleRemoveImage}
-              disabled={pending}
-              className="shrink-0 cursor-pointer rounded border border-accent/40 px-2 py-1 text-xs font-medium text-accent-text transition-colors hover:bg-accent/10 disabled:opacity-50"
-            >
-              Remove
-            </button>
-          </div>
-        )}
+          {showPendingRemovalNotice && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-2.5 text-xs text-muted">
+              <span>Image will be removed when saved</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending || compressing}
+                  className={`cursor-pointer rounded-lg border border-border bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+                >
+                  Upload new
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreExistingImage}
+                  disabled={pending}
+                  className={`cursor-pointer text-xs font-medium text-primary-text underline hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+                >
+                  Undo
+                </button>
+              </div>
+            </div>
+          )}
 
-        {!selectedImage && removeExistingImage && initialLog?.image && (
-          <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-2 text-xs text-muted">
-            <span>Image will be removed when saved</span>
-            <button
-              type="button"
-              onClick={handleRestoreExistingImage}
-              disabled={pending}
-              className="cursor-pointer text-primary-text underline hover:opacity-80 disabled:opacity-50"
-            >
-              Undo
-            </button>
-          </div>
-        )}
+          {compressing && (selectedImage || hasExistingImage || showPendingRemovalNotice) && (
+            <p className="text-xs text-muted">Compressing image...</p>
+          )}
+
+          {imageError && (
+            <p role="alert" className="text-xs text-accent-text">
+              {imageError}
+            </p>
+          )}
+        </div>
       </div>
 
       {state?.error && (
-        <p role="alert" className="text-sm text-accent-text">
+        <p
+          role="alert"
+          className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent-text"
+        >
           {state.error}
         </p>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={pending}
-            className="flex-1 cursor-pointer rounded-lg border border-border bg-surface px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:opacity-50"
+            className={`flex-1 cursor-pointer rounded-lg border border-border px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS} ${
+              isEmbedded ? "bg-background" : "bg-surface"
+            }`}
           >
             Cancel
           </button>
@@ -454,7 +742,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         <button
           type="submit"
           disabled={pending || compressing}
-          className="flex-1 cursor-pointer rounded-lg bg-primary px-4 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className={`flex-1 cursor-pointer rounded-lg bg-primary px-4 py-3 text-base font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
         >
           {pending ? "Saving..." : isEditing ? "Save changes" : "Save"}
         </button>
