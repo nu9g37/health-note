@@ -580,7 +580,7 @@ export function BpForm({
             type="file"
             tabIndex={-1}
             aria-hidden="true"
-            accept={BP_IMAGE_ACCEPT}
+            accept="image/*"
             onChange={handleImageChange}
             disabled={pending || compressing}
             className="sr-only"
@@ -600,10 +600,10 @@ export function BpForm({
                   : "border-border bg-background hover:border-primary/60 hover:bg-surface-subtle/60"
               }`}
             >
-              <span className="pointer-events-none flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
                 <PhotoIcon />
               </span>
-              <span className="pointer-events-none min-w-0 flex-1">
+              <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-foreground">
                   {compressing ? "Compressing image..." : "Attach monitor photo"}
                 </span>
