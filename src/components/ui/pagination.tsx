@@ -9,6 +9,7 @@ interface PaginationProps {
   pageSize: number;
   basePath: string;
   pageParam?: string;
+  queryParams?: Record<string, string | undefined>;
 }
 
 const CONTROL_BASE_CLASS =
@@ -64,10 +65,21 @@ function buildPageHref(
   basePath: string,
   pageParam: string,
   page: number,
+  queryParams?: Record<string, string | undefined>,
 ): string {
-  if (page <= 1) return basePath;
-  const query = new URLSearchParams({ [pageParam]: String(page) });
-  return `${basePath}?${query.toString()}`;
+  const query = new URLSearchParams();
+  if (queryParams) {
+    for (const [key, value] of Object.entries(queryParams)) {
+      if (key !== pageParam && value) {
+        query.set(key, value);
+      }
+    }
+  }
+  if (page > 1) {
+    query.set(pageParam, String(page));
+  }
+  const queryString = query.toString();
+  return queryString ? `${basePath}?${queryString}` : basePath;
 }
 
 function StepButton({
@@ -106,6 +118,7 @@ export function Pagination({
   pageSize,
   basePath,
   pageParam = "page",
+  queryParams,
 }: PaginationProps) {
   if (totalPages <= 0 || totalCount <= 0) return null;
 
@@ -131,7 +144,7 @@ export function Pagination({
           ariaLabel="Previous page"
           href={
             safeCurrent > 1
-              ? buildPageHref(basePath, pageParam, safeCurrent - 1)
+              ? buildPageHref(basePath, pageParam, safeCurrent - 1, queryParams)
               : null
           }
         />
@@ -156,7 +169,7 @@ export function Pagination({
           ) : (
             <Link
               key={item}
-              href={buildPageHref(basePath, pageParam, item)}
+              href={buildPageHref(basePath, pageParam, item, queryParams)}
               aria-label={`Page ${item}`}
               className={`${CONTROL_INTERACTIVE_CLASS} min-w-8 px-2`}
             >
@@ -170,7 +183,7 @@ export function Pagination({
           ariaLabel="Next page"
           href={
             safeCurrent < totalPages
-              ? buildPageHref(basePath, pageParam, safeCurrent + 1)
+              ? buildPageHref(basePath, pageParam, safeCurrent + 1, queryParams)
               : null
           }
         />

@@ -14,7 +14,13 @@ type ActiveDialog =
   | { type: "delete"; logId: string }
   | { type: "image"; logId: string };
 
-export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
+export function BpTable({
+  logs,
+  emptyMessage = "No records yet.",
+}: {
+  logs: BpLogWithImageUrl[];
+  emptyMessage?: string;
+}) {
   const router = useRouter();
   const [dialog, setDialog] = useState<ActiveDialog | null>(null);
   const closeDialog = useCallback(() => setDialog(null), []);
@@ -23,7 +29,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
     : null;
 
   if (logs.length === 0) {
-    return <p className="text-sm text-muted">No records yet.</p>;
+    return <p className="text-sm text-muted">{emptyMessage}</p>;
   }
 
   return (
