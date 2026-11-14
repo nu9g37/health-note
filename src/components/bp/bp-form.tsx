@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
   type ChangeEvent,
   type DragEvent,
+  type RefObject,
   type SubmitEvent,
   type SyntheticEvent,
 } from "react";
@@ -159,7 +160,11 @@ function ClockIcon() {
   );
 }
 
-function PhotoIcon() {
+function PhotoIcon({
+  className = "h-4 w-4 shrink-0 text-muted",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -167,7 +172,7 @@ function PhotoIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth={1.75}
-      className="h-4 w-4 shrink-0 text-muted"
+      className={className}
     >
       <rect x="3" y="4" width="14" height="12" rx="2" />
       <circle cx="7.5" cy="8.25" r="1.25" />
@@ -177,6 +182,100 @@ function PhotoIcon() {
         d="m5 14 3.5-3.5 2.5 2.5 2-2 3 3"
       />
     </svg>
+  );
+}
+
+function CameraIcon({
+  className = "h-4 w-4 shrink-0 text-muted",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.5 7.5A1.5 1.5 0 0 1 5 6h1.75l1-1.5h4.5l1 1.5H15a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 15 16H5a1.5 1.5 0 0 1-1.5-1.5v-7Z"
+      />
+      <circle cx="10" cy="10.75" r="2.5" />
+    </svg>
+  );
+}
+
+function shouldPromptImageSource() {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return false;
+  }
+  return window.matchMedia("(pointer: coarse), (max-width: 639px)").matches;
+}
+
+interface ImageSourceChooserProps {
+  takePhotoButtonRef: RefObject<HTMLButtonElement | null>;
+  disabled: boolean;
+  onSelectCamera: () => void;
+  onSelectFile: () => void;
+  onCancel: () => void;
+}
+
+function ImageSourceChooser({
+  takePhotoButtonRef,
+  disabled,
+  onSelectCamera,
+  onSelectFile,
+  onCancel,
+}: ImageSourceChooserProps) {
+  return (
+    <div
+      role="group"
+      aria-label="Choose image source"
+      className="flex flex-col gap-2 rounded-lg border border-border bg-background p-2.5"
+    >
+      <div className="flex items-center justify-between gap-2 px-0.5">
+        <span className="text-xs font-medium text-muted">
+          Choose image source
+        </span>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={disabled}
+          className={`cursor-pointer text-xs font-medium text-muted transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+        >
+          Cancel
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          ref={takePhotoButtonRef}
+          type="button"
+          onClick={onSelectCamera}
+          disabled={disabled}
+          className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/60 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+        >
+          <CameraIcon className="h-4 w-4 shrink-0 text-primary-text" />
+          <span>Take photo</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSelectFile}
+          disabled={disabled}
+          className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/60 hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
+        >
+          <PhotoIcon className="h-4 w-4 shrink-0 text-muted" />
+          <span>Choose file</span>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -247,6 +346,8 @@ export function BpForm({
   const isEmbedded = embedded ?? Boolean(onCancel);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const takePhotoButtonRef = useRef<HTMLButtonElement>(null);
   const measuredAtInputRef = useRef<HTMLInputElement>(null);
   const compressionRequestRef = useRef(0);
   const measuredAtId = useId();
@@ -269,8 +370,14 @@ export function BpForm({
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [showImageSourcePicker, setShowImageSourcePicker] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [measuredAtError, setMeasuredAtError] = useState<string | null>(null);
+
+  function resetImageInputs() {
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  }
 
   const [state, action, pending] = useActionState(
     async (prev: BpFormState, formData: FormData) => {
@@ -281,12 +388,13 @@ export function BpForm({
       if (result?.success && !isEditing) {
         compressionRequestRef.current += 1;
         formRef.current?.reset();
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        resetImageInputs();
         setSystolicInput("");
         setDiastolicInput("");
         setSelectedImage(null);
         setRemoveExistingImage(false);
         setIsDraggingImage(false);
+        setShowImageSourcePicker(false);
         setImageError(null);
         setMeasuredAtError(null);
       }
@@ -314,6 +422,22 @@ export function BpForm({
     }
   }, [state, isEditing, onSuccess]);
 
+  useEffect(() => {
+    if (!showImageSourcePicker) return;
+    takePhotoButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setShowImageSourcePicker(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [showImageSourcePicker]);
+
   async function processImageFile(file: File) {
     const requestId = ++compressionRequestRef.current;
     setCompressing(true);
@@ -333,7 +457,7 @@ export function BpForm({
     } catch (error) {
       if (requestId !== compressionRequestRef.current) return;
 
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      resetImageInputs();
       setSelectedImage(null);
       setImageError(
         error instanceof Error ? error.message : "Unable to process image",
@@ -348,8 +472,27 @@ export function BpForm({
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
+    setShowImageSourcePicker(false);
     if (!file) return;
     await processImageFile(file);
+  }
+
+  function handleOpenImagePicker() {
+    if (pending || compressing) return;
+    if (shouldPromptImageSource()) {
+      setShowImageSourcePicker((open) => !open);
+      return;
+    }
+    fileInputRef.current?.click();
+  }
+
+  function handleSelectImageSource(source: "camera" | "file") {
+    setShowImageSourcePicker(false);
+    if (source === "camera") {
+      cameraInputRef.current?.click();
+      return;
+    }
+    fileInputRef.current?.click();
   }
 
   function handleImageDragOver(event: DragEvent<HTMLButtonElement>) {
@@ -365,10 +508,11 @@ export function BpForm({
   async function handleImageDrop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     setIsDraggingImage(false);
+    setShowImageSourcePicker(false);
     if (pending || compressing) return;
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    resetImageInputs();
     await processImageFile(file);
   }
 
@@ -377,14 +521,16 @@ export function BpForm({
     setCompressing(false);
     setSelectedImage(null);
     setIsDraggingImage(false);
+    setShowImageSourcePicker(false);
     setImageError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    resetImageInputs();
     if (initialLog?.image) {
       setRemoveExistingImage(true);
     }
   }
 
   function handleRestoreExistingImage() {
+    setShowImageSourcePicker(false);
     setImageError(null);
     setRemoveExistingImage(false);
   }
@@ -408,6 +554,7 @@ export function BpForm({
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (compressing) return;
+    setShowImageSourcePicker(false);
     setImageError(null);
     setMeasuredAtError(null);
 
@@ -443,6 +590,8 @@ export function BpForm({
   const hasExistingImage = Boolean(initialLog?.image) && !removeExistingImage;
   const showPendingRemovalNotice =
     !selectedImage && removeExistingImage && Boolean(initialLog?.image);
+  const isImageChooserVisible =
+    showImageSourcePicker && !pending && !compressing;
   const activePreviewUrl =
     selectedImage?.previewUrl ??
     (hasExistingImage ? (initialLog?.imageUrl ?? null) : null);
@@ -580,39 +729,55 @@ export function BpForm({
             type="file"
             tabIndex={-1}
             aria-hidden="true"
+            accept={BP_IMAGE_ACCEPT}
+            onChange={handleImageChange}
+            disabled={pending || compressing}
+            className="sr-only"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            tabIndex={-1}
+            aria-hidden="true"
             accept="image/*"
+            capture="environment"
             onChange={handleImageChange}
             disabled={pending || compressing}
             className="sr-only"
           />
 
-          {!selectedImage && !hasExistingImage && !showPendingRemovalNotice && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleImageDragOver}
-              onDragLeave={handleImageDragLeave}
-              onDrop={handleImageDrop}
-              disabled={pending || compressing}
-              className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS} ${
-                isDraggingImage
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-background hover:border-primary/60 hover:bg-surface-subtle/60"
-              }`}
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
-                <PhotoIcon />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-foreground">
-                  {compressing ? "Compressing image..." : "Attach monitor photo"}
+          {!selectedImage &&
+            !hasExistingImage &&
+            !showPendingRemovalNotice &&
+            !isImageChooserVisible && (
+              <button
+                type="button"
+                onClick={handleOpenImagePicker}
+                onDragOver={handleImageDragOver}
+                onDragLeave={handleImageDragLeave}
+                onDrop={handleImageDrop}
+                disabled={pending || compressing}
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS} ${
+                  isDraggingImage
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-background hover:border-primary/60 hover:bg-surface-subtle/60"
+                }`}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+                  <PhotoIcon />
                 </span>
-                <span className="block truncate text-xs text-muted">
-                  JPEG, PNG, WebP, or HEIC
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">
+                    {compressing
+                      ? "Compressing image..."
+                      : "Attach monitor photo"}
+                  </span>
+                  <span className="block truncate text-xs text-muted">
+                    JPEG, PNG, WebP, or HEIC
+                  </span>
                 </span>
-              </span>
-            </button>
-          )}
+              </button>
+            )}
 
           {(selectedImage || hasExistingImage) && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-2.5">
@@ -663,7 +828,7 @@ export function BpForm({
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleOpenImagePicker}
                   disabled={pending || compressing}
                   className={`cursor-pointer rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
                 >
@@ -687,7 +852,7 @@ export function BpForm({
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleOpenImagePicker}
                   disabled={pending || compressing}
                   className={`cursor-pointer rounded-lg border border-border bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING_CLASS}`}
                 >
@@ -703,6 +868,16 @@ export function BpForm({
                 </button>
               </div>
             </div>
+          )}
+
+          {isImageChooserVisible && (
+            <ImageSourceChooser
+              takePhotoButtonRef={takePhotoButtonRef}
+              disabled={pending || compressing}
+              onSelectCamera={() => handleSelectImageSource("camera")}
+              onSelectFile={() => handleSelectImageSource("file")}
+              onCancel={() => setShowImageSourcePicker(false)}
+            />
           )}
 
           {compressing && (selectedImage || hasExistingImage || showPendingRemovalNotice) && (
