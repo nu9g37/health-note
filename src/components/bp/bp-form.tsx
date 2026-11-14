@@ -4,10 +4,13 @@ import {
   startTransition,
   useActionState,
   useEffect,
+  useId,
   useRef,
   useState,
+  useSyncExternalStore,
   type ChangeEvent,
   type SubmitEvent,
+  type SyntheticEvent,
 } from "react";
 import { createBpLog, updateBpLog, type BpFormState } from "@/actions/bp-logs";
 import { BpImage } from "@/components/bp/bp-image";
@@ -15,11 +18,72 @@ import { compressBpImage } from "@/lib/bp/compress-image";
 import { BP_IMAGE_ACCEPT, formatBytes } from "@/lib/bp/image";
 import type { BpLogWithImageUrl } from "@/types";
 
+function formatDateTimeLocal(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function toDateTimeLocalValue(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return formatDateTimeLocal(date);
+}
+
+type ParsedMeasuredAt =
+  | { ok: true; iso: string }
+  | { ok: false; error: string };
+
+function parseMeasuredAtLocal(value: string): ParsedMeasuredAt {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, error: "Please enter a valid date and time" };
+  }
+  if (date.getTime() > Date.now()) {
+    return { ok: false, error: "Measured time cannot be in the future" };
+  }
+  return { ok: true, iso: date.toISOString() };
+}
+
+const currentMinuteListeners = new Set<() => void>();
+
+function notifyCurrentMinuteListeners() {
+  for (const listener of currentMinuteListeners) {
+    listener();
+  }
+}
+
+function subscribeToCurrentMinute(onStoreChange: () => void) {
+  currentMinuteListeners.add(onStoreChange);
+
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const scheduleNextTick = () => {
+    const now = new Date();
+    const msUntilNextMinute =
+      (60 - now.getSeconds()) * 1000 - now.getMilliseconds() + 50;
+    timeoutId = setTimeout(() => {
+      onStoreChange();
+      scheduleNextTick();
+    }, msUntilNextMinute);
+  };
+
+  scheduleNextTick();
+  window.addEventListener("focus", onStoreChange);
+  document.addEventListener("visibilitychange", onStoreChange);
+
+  return () => {
+    currentMinuteListeners.delete(onStoreChange);
+    clearTimeout(timeoutId);
+    window.removeEventListener("focus", onStoreChange);
+    document.removeEventListener("visibilitychange", onStoreChange);
+  };
+}
+
+function getCurrentMinuteSnapshot() {
+  return formatDateTimeLocal(new Date());
+}
+
+function getServerMinuteSnapshot(): string | undefined {
+  return undefined;
 }
 
 interface SelectedImage {
@@ -38,7 +102,14 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
   const isEditing = Boolean(initialLog);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const measuredAtInputRef = useRef<HTMLInputElement>(null);
   const compressionRequestRef = useRef(0);
+  const measuredAtErrorId = useId();
+  const maxMeasuredAt = useSyncExternalStore(
+    subscribeToCurrentMinute,
+    getCurrentMinuteSnapshot,
+    getServerMinuteSnapshot,
+  );
 
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(
     null,
@@ -46,6 +117,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [measuredAtError, setMeasuredAtError] = useState<string | null>(null);
 
   const [state, action, pending] = useActionState(
     async (prev: BpFormState, formData: FormData) => {
@@ -60,6 +132,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         setSelectedImage(null);
         setRemoveExistingImage(false);
         setImageError(null);
+        setMeasuredAtError(null);
       }
       return result;
     },
@@ -135,15 +208,38 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
     setRemoveExistingImage(false);
   }
 
+  function handleMeasuredAtRefresh(event: SyntheticEvent<HTMLInputElement>) {
+    event.currentTarget.max = getCurrentMinuteSnapshot();
+    notifyCurrentMinuteListeners();
+  }
+
+  function handleMeasuredAtChange(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.currentTarget.value;
+    if (!value) {
+      setMeasuredAtError(null);
+      return;
+    }
+
+    const parsed = parseMeasuredAtLocal(value);
+    setMeasuredAtError(parsed.ok ? null : parsed.error);
+  }
+
   function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (compressing) return;
     setImageError(null);
+    setMeasuredAtError(null);
 
     const formData = new FormData(event.currentTarget);
     const local = formData.get("measuredAt");
     if (typeof local === "string" && local) {
-      formData.set("measuredAt", new Date(local).toISOString());
+      const parsed = parseMeasuredAtLocal(local);
+      if (!parsed.ok) {
+        setMeasuredAtError(parsed.error);
+        measuredAtInputRef.current?.focus();
+        return;
+      }
+      formData.set("measuredAt", parsed.iso);
     }
 
     if (selectedImage) {
@@ -214,18 +310,41 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
-        {isEditing ? "Measured at" : "Measured at (optional, defaults to now)"}
-        <input
-          name="measuredAt"
-          type="datetime-local"
-          required={isEditing}
-          defaultValue={
-            initialLog ? toDateTimeLocalValue(initialLog.measured_at) : undefined
-          }
-          className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
-      </label>
+      <div className="flex flex-col gap-1">
+        <label className="flex flex-col gap-1 text-sm">
+          {isEditing
+            ? "Measured at"
+            : "Measured at (optional, defaults to now)"}
+          <input
+            ref={measuredAtInputRef}
+            name="measuredAt"
+            type="datetime-local"
+            max={maxMeasuredAt}
+            required={isEditing}
+            defaultValue={
+              initialLog
+                ? toDateTimeLocalValue(initialLog.measured_at)
+                : undefined
+            }
+            onPointerDown={handleMeasuredAtRefresh}
+            onFocus={handleMeasuredAtRefresh}
+            onChange={handleMeasuredAtChange}
+            aria-invalid={Boolean(measuredAtError) || undefined}
+            aria-describedby={measuredAtError ? measuredAtErrorId : undefined}
+            className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </label>
+
+        {measuredAtError && (
+          <p
+            id={measuredAtErrorId}
+            role="alert"
+            className="text-xs text-accent-text"
+          >
+            {measuredAtError}
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-col gap-2 text-sm">
         <label className="flex flex-col gap-1">
