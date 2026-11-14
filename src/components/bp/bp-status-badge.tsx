@@ -14,7 +14,7 @@ export function BpStatusBadge({
   const status = classifyBp(systolic, diastolic);
   return (
     <span
-      className={`rounded-full px-2 py-1 text-xs font-medium ${BP_STATUS_CLASS[status]}`}
+      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${BP_STATUS_CLASS[status]}`}
     >
       {BP_STATUS_LABEL[status]}
     </span>

@@ -13,7 +13,9 @@ export const BP_STATUS_LABEL: Record<BpStatus, string> = {
 };
 
 export const BP_STATUS_CLASS: Record<BpStatus, string> = {
-  normal: "bg-green-100 text-green-800",
-  elevated: "bg-yellow-100 text-yellow-800",
-  high: "bg-red-100 text-red-800",
+  normal:
+    "border border-secondary/60 bg-secondary/20 text-secondary-text dark:border-secondary/45 dark:bg-secondary/15 dark:text-secondary",
+  elevated:
+    "border border-amber-400/60 bg-amber-100 text-amber-800 dark:border-amber-400/35 dark:bg-amber-400/15 dark:text-amber-300",
+  high: "border border-accent/45 bg-accent/15 text-accent-text dark:border-accent/45 dark:bg-accent/15 dark:text-accent",
 };

@@ -38,7 +38,7 @@ async function SignInNotice({
   const statusMessage = STATUS_MESSAGES[status];
   if (statusMessage) {
     return (
-      <p role="status" className="text-sm text-green-700 dark:text-green-400">
+      <p role="status" className="text-sm text-secondary-text">
         {statusMessage}
       </p>
     );
@@ -47,7 +47,7 @@ async function SignInNotice({
   const errorMessage = ERROR_MESSAGES[error];
   if (errorMessage) {
     return (
-      <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+      <p role="alert" className="text-sm text-accent-text">
         {errorMessage}
       </p>
     );

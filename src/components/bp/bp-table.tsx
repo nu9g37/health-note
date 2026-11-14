@@ -23,7 +23,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
     : null;
 
   if (logs.length === 0) {
-    return <p className="text-sm text-gray-500">No records yet.</p>;
+    return <p className="text-sm text-muted">No records yet.</p>;
   }
 
   return (
@@ -31,18 +31,18 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b">
-              <th className="py-2 pr-3">Date</th>
-              <th className="py-2 pr-3">BP</th>
-              <th className="py-2 pr-3">Pulse</th>
-              <th className="py-2 pr-3">Status</th>
-              <th className="py-2 pr-3">Image</th>
+            <tr className="border-b border-border text-muted">
+              <th className="py-2 pr-3 font-medium">Date</th>
+              <th className="py-2 pr-3 font-medium">BP</th>
+              <th className="py-2 pr-3 font-medium">Pulse</th>
+              <th className="py-2 pr-3 font-medium">Status</th>
+              <th className="py-2 pr-3 font-medium">Image</th>
               <th className="py-2" />
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
-              <tr key={log.id} className="border-b">
+              <tr key={log.id} className="border-b border-border">
                 <td className="py-2 pr-3">
                   <time suppressHydrationWarning>
                     {new Date(log.measured_at).toLocaleString()}
@@ -64,7 +64,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
                       type="button"
                       onClick={() => setDialog({ type: "image", logId: log.id })}
                       aria-label={`View image for ${log.systolic}/${log.diastolic} reading`}
-                      className="block rounded border transition hover:opacity-80"
+                      className="block cursor-pointer rounded border border-border transition hover:opacity-80"
                     >
                       <BpImage
                         src={log.imageUrl}
@@ -73,14 +73,14 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
                         height={40}
                         className="h-10 w-10 rounded object-cover"
                         fallback={
-                          <span className="flex h-10 w-10 items-center justify-center text-[10px] text-gray-500">
+                          <span className="flex h-10 w-10 items-center justify-center text-[10px] text-muted">
                             View
                           </span>
                         }
                       />
                     </button>
                   ) : log.image ? (
-                    <span className="text-xs text-gray-400">Unavailable</span>
+                    <span className="text-xs text-muted">Unavailable</span>
                   ) : (
                     "-"
                   )}
@@ -90,7 +90,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
                     <button
                       type="button"
                       onClick={() => setDialog({ type: "edit", logId: log.id })}
-                      className="text-blue-600 underline"
+                      className="cursor-pointer text-primary-text underline hover:opacity-80"
                     >
                       Edit
                     </button>
@@ -99,7 +99,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
                       onClick={() =>
                         setDialog({ type: "delete", logId: log.id })
                       }
-                      className="text-red-600 underline"
+                      className="cursor-pointer text-accent-text underline hover:opacity-80"
                     >
                       Delete
                     </button>
@@ -133,7 +133,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
       {dialog?.type === "image" && activeLog?.imageUrl && (
         <Modal title="Blood pressure image" onClose={closeDialog}>
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-muted">
               <span>
                 {activeLog.systolic}/{activeLog.diastolic} mmHg
                 {activeLog.pulse !== null ? ` · Pulse ${activeLog.pulse}` : ""}
@@ -147,9 +147,9 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
               alt={`Blood pressure ${activeLog.systolic}/${activeLog.diastolic}`}
               width={1280}
               height={1280}
-              className="max-h-[65vh] w-full rounded-lg border object-contain"
+              className="max-h-[65vh] w-full rounded-lg border border-border object-contain"
               fallback={
-                <div className="flex flex-col items-center gap-3 rounded-lg border p-6 text-center text-sm text-gray-500">
+                <div className="flex flex-col items-center gap-3 rounded-lg border border-border p-6 text-center text-sm text-muted">
                   <p>
                     Unable to preview this image in the browser (the format may
                     not be supported, or the temporary link may have expired).
@@ -160,14 +160,14 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       download
-                      className="rounded-lg border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-subtle"
                     >
                       Open / Download
                     </a>
                     <button
                       type="button"
                       onClick={() => router.refresh()}
-                      className="rounded-lg border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+                      className="cursor-pointer rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-subtle"
                     >
                       Refresh link
                     </button>
@@ -178,7 +178,7 @@ export function BpTable({ logs }: { logs: BpLogWithImageUrl[] }) {
             <button
               type="button"
               onClick={closeDialog}
-              className="rounded-lg border px-4 py-2 text-sm font-medium"
+              className="cursor-pointer rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-subtle"
             >
               Close
             </button>

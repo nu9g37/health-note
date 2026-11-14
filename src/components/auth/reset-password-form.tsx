@@ -17,7 +17,7 @@ export function ResetPasswordForm() {
             autoComplete="new-password"
             minLength={8}
             required
-            className="rounded-lg border px-3 py-3 text-base"
+            className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -28,12 +28,12 @@ export function ResetPasswordForm() {
             autoComplete="new-password"
             minLength={8}
             required
-            className="rounded-lg border px-3 py-3 text-base"
+            className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
 
         {state?.error && (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="text-sm text-accent-text">
             {state.error}
           </p>
         )}
@@ -41,14 +41,17 @@ export function ResetPasswordForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50"
+          className="cursor-pointer rounded-lg bg-primary px-4 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? "Updating password..." : "Update password"}
         </button>
       </form>
 
       <form action={cancelPasswordReset} className="text-center">
-        <button type="submit" className="text-sm underline">
+        <button
+          type="submit"
+          className="cursor-pointer text-sm text-primary-text underline hover:opacity-80"
+        >
           Back to sign in
         </button>
       </form>

@@ -8,10 +8,10 @@ export default function ResetPasswordPage() {
   return (
     <>
       <h1 className="mb-2 text-2xl font-bold">Reset password</h1>
-      <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+      <p className="mb-6 text-sm text-muted">
         Enter a new password for your account.
       </p>
-      <Suspense fallback={<p className="text-sm text-gray-500">Loading...</p>}>
+      <Suspense fallback={<p className="text-sm text-muted">Loading...</p>}>
         <ResetPasswordGuard />
       </Suspense>
     </>

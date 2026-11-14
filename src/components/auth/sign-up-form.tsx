@@ -16,7 +16,7 @@ export function SignUpForm() {
           type="email"
           autoComplete="email"
           required
-          className="rounded-lg border px-3 py-3 text-base"
+          className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -27,7 +27,7 @@ export function SignUpForm() {
           autoComplete="new-password"
           minLength={8}
           required
-          className="rounded-lg border px-3 py-3 text-base"
+          className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -37,17 +37,17 @@ export function SignUpForm() {
           type="password"
           autoComplete="new-password"
           required
-          className="rounded-lg border px-3 py-3 text-base"
+          className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </label>
 
       {state?.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-accent-text">
           {state.error}
         </p>
       )}
       {state?.message && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-sm text-secondary-text">
           {state.message}
         </p>
       )}
@@ -55,14 +55,17 @@ export function SignUpForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50"
+        className="cursor-pointer rounded-lg bg-primary px-4 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50"
       >
         {pending ? "Creating account..." : "Sign up"}
       </button>
 
-      <p className="text-center text-sm">
+      <p className="text-center text-sm text-muted">
         Already have an account?{" "}
-        <Link href="/sign-in" className="underline">
+        <Link
+          href="/sign-in"
+          className="text-primary-text underline hover:opacity-80"
+        >
           Sign in
         </Link>
       </p>

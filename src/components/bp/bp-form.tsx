@@ -172,7 +172,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-lg border p-4"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm"
     >
       {initialLog && <input type="hidden" name="id" value={initialLog.id} />}
 
@@ -186,7 +186,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             required
             placeholder="120"
             defaultValue={initialLog?.systolic}
-            className="rounded-lg border px-3 py-3 text-lg"
+            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -198,7 +198,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             required
             placeholder="80"
             defaultValue={initialLog?.diastolic}
-            className="rounded-lg border px-3 py-3 text-lg"
+            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -209,7 +209,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             inputMode="numeric"
             placeholder="70"
             defaultValue={initialLog?.pulse ?? ""}
-            className="rounded-lg border px-3 py-3 text-lg"
+            className="rounded-lg border border-border bg-background px-3 py-3 text-lg text-foreground placeholder:text-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </label>
       </div>
@@ -223,7 +223,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
           defaultValue={
             initialLog ? toDateTimeLocalValue(initialLog.measured_at) : undefined
           }
-          className="rounded-lg border px-3 py-3 text-base"
+          className="rounded-lg border border-border bg-background px-3 py-3 text-base text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </label>
 
@@ -236,22 +236,22 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             accept={BP_IMAGE_ACCEPT}
             onChange={handleImageChange}
             disabled={pending || compressing}
-            className="rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-3 file:py-1 file:text-sm file:font-medium dark:file:bg-gray-800"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded file:border-0 file:bg-surface-subtle file:px-3 file:py-1 file:text-sm file:font-medium file:text-foreground"
           />
         </label>
 
         {compressing && (
-          <p className="text-xs text-gray-500">Compressing image...</p>
+          <p className="text-xs text-muted">Compressing image...</p>
         )}
 
         {imageError && (
-          <p role="alert" className="text-xs text-red-600">
+          <p role="alert" className="text-xs text-accent-text">
             {imageError}
           </p>
         )}
 
         {(selectedImage || hasExistingImage) && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border p-2">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-2">
             <div className="flex min-w-0 items-center gap-3">
               {activePreviewUrl ? (
                 <BpImage
@@ -259,26 +259,26 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
                   alt="Blood pressure monitor preview"
                   width={64}
                   height={64}
-                  className="h-16 w-16 shrink-0 rounded border object-cover"
+                  className="h-16 w-16 shrink-0 rounded border border-border object-cover"
                   fallback={
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-gray-100 px-1 text-center text-[11px] text-gray-500 dark:bg-gray-800">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
                       No preview
                     </span>
                   }
                 />
               ) : (
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border bg-gray-100 px-1 text-center text-[11px] text-gray-500 dark:bg-gray-800">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded border border-border bg-surface-subtle px-1 text-center text-[11px] text-muted">
                   Attached
                 </span>
               )}
 
-              <div className="min-w-0 text-xs text-gray-600 dark:text-gray-300">
+              <div className="min-w-0 text-xs text-foreground">
                 {selectedImage ? (
                   <>
                     <p className="truncate font-medium">
                       {selectedImage.file.name}
                     </p>
-                    <p className="text-gray-500">
+                    <p className="text-muted">
                       {formatBytes(selectedImage.file.size)}
                       {selectedImage.compressed ? " (compressed)" : ""}
                     </p>
@@ -293,7 +293,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
               type="button"
               onClick={handleRemoveImage}
               disabled={pending}
-              className="shrink-0 rounded border px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/30"
+              className="shrink-0 cursor-pointer rounded border border-accent/40 px-2 py-1 text-xs font-medium text-accent-text transition-colors hover:bg-accent/10 disabled:opacity-50"
             >
               Remove
             </button>
@@ -301,13 +301,13 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         )}
 
         {!selectedImage && removeExistingImage && initialLog?.image && (
-          <div className="flex items-center justify-between rounded-lg border border-dashed p-2 text-xs text-gray-500">
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-2 text-xs text-muted">
             <span>Image will be removed when saved</span>
             <button
               type="button"
               onClick={handleRestoreExistingImage}
               disabled={pending}
-              className="text-blue-600 underline disabled:opacity-50"
+              className="cursor-pointer text-primary-text underline hover:opacity-80 disabled:opacity-50"
             >
               Undo
             </button>
@@ -316,7 +316,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
       </div>
 
       {state?.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-accent-text">
           {state.error}
         </p>
       )}
@@ -327,7 +327,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
             type="button"
             onClick={onCancel}
             disabled={pending}
-            className="flex-1 rounded-lg border px-4 py-3 text-base font-medium disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded-lg border border-border bg-surface px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:opacity-50"
           >
             Cancel
           </button>
@@ -335,7 +335,7 @@ export function BpForm({ initialLog, onSuccess, onCancel }: BpFormProps) {
         <button
           type="submit"
           disabled={pending || compressing}
-          className="flex-1 rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50"
+          className="flex-1 cursor-pointer rounded-lg bg-primary px-4 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? "Saving..." : isEditing ? "Save changes" : "Save"}
         </button>

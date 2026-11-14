@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f4f4fb;
+  --foreground: #1a2744;
+  --surface: #ffffff;
+  --surface-subtle: #e8eaf5;
+  --muted: #52607e;
+  --border: #d5d8eb;
+
+  --primary: #008fff;
+  --primary-hover: #007be0;
+  --primary-text: #006ec9;
+  --primary-foreground: #ffffff;
+
+  --secondary: #50e3c2;
+  --secondary-text: #0d6b57;
+  --secondary-foreground: #1a2744;
+
+  --accent: #ff5436;
+  --accent-hover: #e54428;
+  --accent-text: #c9331a;
+  --accent-foreground: #ffffff;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #1a2744;
+  --foreground: #f4f4fb;
+  --surface: #223154;
+  --surface-subtle: #2b3d66;
+  --muted: #a8b6d3;
+  --border: #324570;
+
+  --primary: #45adff;
+  --primary-hover: #64bcff;
+  --primary-text: #45adff;
+  --primary-foreground: #1a2744;
+
+  --secondary: #73ffe0;
+  --secondary-text: #73ffe0;
+  --secondary-foreground: #1a2744;
+
+  --accent: #ff8975;
+  --accent-hover: #ffa191;
+  --accent-text: #ff8975;
+  --accent-foreground: #1a2744;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-text: var(--primary-text);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-text: var(--secondary-text);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-foreground: var(--accent-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  }
 }

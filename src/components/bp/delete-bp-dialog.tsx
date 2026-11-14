@@ -33,15 +33,12 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
       initialFocusRef={cancelRef}
     >
       <div className="flex flex-col gap-4">
-        <p
-          id={descriptionId}
-          className="text-sm text-gray-600 dark:text-gray-300"
-        >
+        <p id={descriptionId} className="text-sm text-muted">
           Are you sure you want to delete this record? This action cannot be
           undone.
         </p>
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 text-sm">
           <div className="flex items-center gap-3">
             {log.imageUrl && (
               <BpImage
@@ -49,7 +46,7 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
                 alt={`Blood pressure ${log.systolic}/${log.diastolic}`}
                 width={48}
                 height={48}
-                className="h-12 w-12 shrink-0 rounded border object-cover"
+                className="h-12 w-12 shrink-0 rounded border border-border object-cover"
               />
             )}
             <div className="flex flex-col gap-1">
@@ -57,10 +54,7 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
                 {log.systolic}/{log.diastolic} mmHg
                 {log.pulse !== null ? ` · Pulse ${log.pulse}` : ""}
               </span>
-              <time
-                suppressHydrationWarning
-                className="text-xs text-gray-500 dark:text-gray-400"
-              >
+              <time suppressHydrationWarning className="text-xs text-muted">
                 {new Date(log.measured_at).toLocaleString()}
               </time>
             </div>
@@ -69,7 +63,7 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
         </div>
 
         {state?.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-accent-text">
             {state.error}
           </p>
         )}
@@ -81,14 +75,14 @@ export function DeleteBpDialog({ log, onClose }: DeleteBpDialogProps) {
             type="button"
             onClick={onClose}
             disabled={pending}
-            className="flex-1 rounded-lg border px-4 py-3 text-base font-medium disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded-lg border border-border bg-surface px-4 py-3 text-base font-medium text-foreground transition-colors hover:bg-surface-subtle disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-base font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded-lg bg-accent px-4 py-3 text-base font-medium text-accent-foreground transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             {pending ? "Deleting..." : "Delete"}
           </button>

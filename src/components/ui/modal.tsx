@@ -101,12 +101,12 @@ export function Modal({
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
     >
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-lg border bg-background p-4 text-foreground shadow-lg outline-none"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-4 text-foreground shadow-xl outline-none"
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 id={titleId} className="text-lg font-semibold">
