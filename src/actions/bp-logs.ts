@@ -105,6 +105,7 @@ export async function createBpLog(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/history");
   return { success: true };
 }
 
@@ -173,6 +174,7 @@ export async function updateBpLog(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/history");
   return { success: true };
 }
 
@@ -203,5 +205,6 @@ export async function deleteBpLog(
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/history");
   return { success: true };
 }
